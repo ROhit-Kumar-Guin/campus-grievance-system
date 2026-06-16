@@ -6,10 +6,12 @@ const grievanceSchema = new mongoose.Schema(
       type: String,
       required: [true, 'Title is required'],
       trim: true,
+      maxlength: [200, 'Title cannot exceed 200 characters'],
     },
     description: {
       type: String,
       required: [true, 'Description is required'],
+      maxlength: [5000, 'Description cannot exceed 5000 characters'],
     },
     category: {
       type: String,
@@ -46,10 +48,17 @@ const grievanceSchema = new mongoose.Schema(
         originalName: String,
       },
     ],
-    isAnonymous: {
-      type: Boolean,
-      default: false,
+    visibility: {
+      type: String,
+      enum: ['public', 'private'],
+      default: 'public',
     },
+    assignedAdmins: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+    ],
     comments: [
       {
         type: mongoose.Schema.Types.ObjectId,

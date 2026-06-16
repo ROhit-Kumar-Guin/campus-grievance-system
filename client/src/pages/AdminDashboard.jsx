@@ -5,6 +5,7 @@ import Badge from '../components/ui/Badge.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useNavigate } from 'react-router-dom';
 import { fetchGrievances } from '../api/grievance.api.js';
+import { fetchSummary } from '../api/analytics.api.js';
 import {
   IconAlertCircle, IconCheck,
   IconClock, IconUsers, IconArrowRight,
@@ -23,12 +24,17 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const [grievances, setGrievances] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [totalStudents, setTotalStudents] = useState(0);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await fetchGrievances({ limit: 10 });
-        setGrievances(data.grievances);
+        const [grievanceData, summaryData] = await Promise.all([
+  fetchGrievances({ limit: 10 }),
+  fetchSummary(),
+]);
+setGrievances(grievanceData.grievances);
+setTotalStudents(summaryData.summary.totalStudents);
       } catch (e) {
         console.error(e);
       } finally {
@@ -80,7 +86,7 @@ const AdminDashboard = () => {
         />
         <StatCard
           label="Total Students"
-          value="3.4k"
+          value={totalStudents}
           color="violet"
           icon={<IconUsers size={18} className="text-violet-600 dark:text-violet-400" />}
         />

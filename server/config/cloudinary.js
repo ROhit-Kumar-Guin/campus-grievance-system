@@ -31,6 +31,34 @@ export const uploadResource = multer({
     'campus-grievance/resources',
     ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'txt', 'png', 'jpg']
   ),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = ['application/pdf', 'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint', 'image/jpeg', 'image/png'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('File type not allowed'), false);
+    }
+  },
+});
+
+
+export const uploadGrievance = multer({
+  storage: getStorage(
+    'campus-grievance/attachments',
+    ['pdf', 'jpg', 'jpeg', 'png']
+  ),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  fileFilter: (req, file, cb) => {
+    const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF, JPG and PNG allowed'), false);
+    }
+  },
 });
 
 export const uploadStory = multer({
@@ -38,14 +66,17 @@ export const uploadStory = multer({
     'campus-grievance/stories',
     ['jpg', 'jpeg', 'png', 'webp']
   ),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB max
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images allowed for stories'), false);
+    }
+  },
 });
 
-export const uploadGrievance = multer({
-  storage: getStorage(
-    'campus-grievance/attachments',
-    ['pdf', 'jpg', 'jpeg', 'png']
-  ),
-});
+
 
 export const getCloudinary = () => {
   cloudinary.v2.config({

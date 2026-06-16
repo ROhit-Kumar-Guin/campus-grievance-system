@@ -22,7 +22,16 @@ import StoriesPage from './pages/StoriesPage.jsx';
 import AnalyticsPage from './pages/AnalyticsPage.jsx';
 import AdminGrievancesPage from './pages/admin/AdminGrievancesPage.jsx';
 
+import ProfilePage from './pages/ProfilePage.jsx';
+import AdminSettingsPage from './pages/admin/AdminSettingsPage.jsx';
+import AdminUsersPage from './pages/admin/AdminUsersPage.jsx';
 
+import LandingPage from './pages/LandingPage.jsx';
+import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx';
+import AllIssuesPage from './pages/AllIssuesPage.jsx';
+import MessagesPage from './pages/MessagesPage.jsx';
+import AdminInboxPage from './pages/admin/AdminInboxPage.jsx';
+import StudentInboxPage from './pages/StudentInboxPage.jsx';
 
 
 const PlaceholderPage = ({ title }) => (
@@ -49,6 +58,17 @@ function App() {
               {/* Public */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<SignupPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/all-issues" element={
+                <ProtectedRoute requiredRole="Student">
+                  <AllIssuesPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/all-issues/:id" element={
+                <ProtectedRoute requiredRole="Student">
+                  <GrievanceDetailPage />
+                </ProtectedRoute>
+              } />
 
               {/* Student routes */}
               <Route path="/dashboard" element={
@@ -77,6 +97,31 @@ function App() {
               <Route path="/analytics" element={
                 <ProtectedRoute requiredRole="Student"><AnalyticsPage /></ProtectedRoute>
               } />
+              <Route path="/messages/:grievanceId" element={
+                <ProtectedRoute requiredRole="Student">
+                  <MessagesPage />
+                </ProtectedRoute>
+              } />
+              {/* Student messages inbox */}
+              <Route path="/messages" element={
+                <ProtectedRoute requiredRole="Student">
+                  <StudentInboxPage />
+                </ProtectedRoute>
+              } />
+
+              {/* Student private message chat */}
+              <Route path="/messages/:grievanceId" element={
+                <ProtectedRoute requiredRole="Student">
+                  <MessagesPage />
+                </ProtectedRoute>
+              } />
+
+              {/* Student profile */}
+              <Route path="/profile" element={
+                <ProtectedRoute requiredRole="Student">
+                  <ProfilePage />
+                </ProtectedRoute>
+              } />
 
               {/* Admin routes */}
               <Route path="/admin" element={
@@ -91,8 +136,21 @@ function App() {
               <Route path="/admin/analytics" element={
                 <ProtectedRoute requiredRole="Admin"><AnalyticsPage /></ProtectedRoute>
               } />
+              <Route path="/admin/inbox" element={
+                <ProtectedRoute requiredRole="Admin">
+                  <AdminInboxPage />
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/messages/:grievanceId" element={
+                <ProtectedRoute requiredRole="Admin">
+                  <MessagesPage />
+                </ProtectedRoute>
+              } />
+              {/* Admin users */}
               <Route path="/admin/users" element={
-                <ProtectedRoute requiredRole="Admin"><PlaceholderPage title="Users — Phase 4" /></ProtectedRoute>
+                <ProtectedRoute requiredRole="Admin">
+                  <AdminUsersPage />
+                </ProtectedRoute>
               } />
               <Route path="/admin/resources" element={
                 <ProtectedRoute requiredRole="Admin"><ResourcesPage /></ProtectedRoute>
@@ -109,11 +167,14 @@ function App() {
               } />
 
 
+              {/* Admin settings */}
               <Route path="/admin/settings" element={
-                <ProtectedRoute requiredRole="Admin"><PlaceholderPage title="Settings" /></ProtectedRoute>
+                <ProtectedRoute requiredRole="Admin">
+                  <AdminSettingsPage />
+                </ProtectedRoute>
               } />
 
-              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/" element={<LandingPage />} />
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
           </SocketProvider>

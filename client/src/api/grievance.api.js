@@ -5,6 +5,14 @@ export const fetchGrievances = async (params = {}) => {
   return response.data;
 };
 
+// Fetch only the logged-in student's own grievances
+export const fetchMyGrievances = async (params = {}) => {
+  const response = await axiosInstance.get('/grievances', {
+    params: { ...params, mine: 'true' },
+  });
+  return response.data;
+};
+
 export const fetchGrievanceById = async (id) => {
   const response = await axiosInstance.get(`/grievances/${id}`);
   return response.data;

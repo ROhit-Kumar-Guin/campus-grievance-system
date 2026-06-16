@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell.jsx';
 import Badge from '../components/ui/Badge.jsx';
-import { fetchGrievanceById, addComment, updateGrievanceStatus, assignGrievance } from '../api/grievance.api.js';
+import {
+  fetchGrievanceById,
+  addComment,
+  updateGrievanceStatus,
+  assignGrievance,
+} from '../api/grievance.api.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import toast from 'react-hot-toast';
 import {
@@ -11,26 +16,40 @@ import {
 } from '@tabler/icons-react';
 
 const statusVariant = {
-  'Pending': 'pending', 'Under Review': 'review',
-  'In Progress': 'progress', 'Resolved': 'resolved', 'Closed': 'closed',
+  'Pending':      'pending',
+  'Under Review': 'review',
+  'In Progress':  'progress',
+  'Resolved':     'resolved',
+  'Closed':       'closed',
 };
 
-// The 5 workflow steps in order
 const WORKFLOW = ['Pending', 'Under Review', 'In Progress', 'Resolved', 'Closed'];
 
 const GrievanceDetailPage = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+  const { id }       = useParams();
+  const navigate     = useNavigate();
+  const location     = useLocation();
   const { isAdmin, user } = useAuth();
 
-  const [grievance, setGrievance] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // ── Determine back path based on current URL ─────────────
+  const getBackPath = () => {
+    if (location.pathname.startsWith('/all-issues'))  return '/all-issues';
+    if (location.pathname.startsWith('/admin'))       return '/admin/grievances';
+    return '/grievances';
+  };
+
+  const getBackLabel = () => {
+    if (location.pathname.startsWith('/all-issues'))  return 'Back to all issues';
+    if (location.pathname.startsWith('/admin'))       return 'Back to all grievances';
+    return 'Back to my issues';
+  };
+
+  const [grievance, setGrievance]   = useState(null);
+  const [loading, setLoading]       = useState(true);
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-
-  // Admin assign form
   const [assignForm, setAssignForm] = useState({ assignedTo: '', deadline: '' });
-  const [assigning, setAssigning] = useState(false);
+  const [assigning, setAssigning]   = useState(false);
 
   useEffect(() => {
     loadGrievance();
@@ -43,13 +62,13 @@ const GrievanceDetailPage = () => {
       setGrievance(data.grievance);
       setAssignForm({
         assignedTo: data.grievance.assignedTo || '',
-        deadline: data.grievance.deadline
+        deadline:   data.grievance.deadline
           ? new Date(data.grievance.deadline).toISOString().split('T')[0]
           : '',
       });
     } catch (error) {
       toast.error('Failed to load grievance');
-      navigate(-1);
+      navigate(getBackPath());
     } finally {
       setLoading(false);
     }
@@ -62,7 +81,7 @@ const GrievanceDetailPage = () => {
     try {
       await addComment(id, commentText);
       setCommentText('');
-      await loadGrievance(); // Refresh to show new comment
+      await loadGrievance();
       toast.success('Comment added');
     } catch {
       toast.error('Failed to add comment');
@@ -108,19 +127,25 @@ const GrievanceDetailPage = () => {
   if (!grievance) return null;
 
   const currentStepIndex = WORKFLOW.indexOf(grievance.status);
-  const isOverdue = grievance.deadline &&
+  const isOverdue =
+    grievance.deadline &&
     new Date(grievance.deadline) < new Date() &&
     !['Resolved', 'Closed'].includes(grievance.status);
+
+  // Check if current user is the owner
+  const isOwner =
+    grievance.submittedBy?._id?.toString() === user?._id?.toString() ||
+    grievance.submittedBy?.toString() === user?._id?.toString();
 
   return (
     <AppShell title="Issue Detail">
       {/* Back button */}
       <button
-        onClick={() => navigate(isAdmin ? '/admin/grievances' : '/grievances')}
+        onClick={() => navigate(getBackPath())}
         className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 mb-5 transition"
       >
         <IconArrowLeft size={16} />
-        Back
+        {getBackLabel()}
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
@@ -128,30 +153,32 @@ const GrievanceDetailPage = () => {
         {/* Left — main content */}
         <div className="lg:col-span-2 flex flex-col gap-5">
 
-          {/* Grievance header card */}
+          {/* Header card */}
           <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm p-5">
-            {/* ID + date */}
             <div className="text-xs text-gray-400 dark:text-slate-500 mb-2">
-              #{grievance._id.slice(-8).toUpperCase()} · Submitted {new Date(grievance.createdAt).toLocaleDateString('en-IN', {
-                day: 'numeric', month: 'long', year: 'numeric'
+              #{grievance._id.slice(-8).toUpperCase()} · Submitted{' '}
+              {new Date(grievance.createdAt).toLocaleDateString('en-IN', {
+                day: 'numeric', month: 'long', year: 'numeric',
               })}
             </div>
 
-            {/* Title */}
             <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100 mb-3">
               {grievance.title}
             </h2>
 
-            {/* Badges */}
             <div className="flex flex-wrap gap-2 mb-4">
               <span className="text-xs bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-300 px-2.5 py-1 rounded-full">
                 {grievance.category}
               </span>
-              <Badge variant={grievance.priority.toLowerCase()}>{grievance.priority} Priority</Badge>
-              <Badge variant={statusVariant[grievance.status]}>{grievance.status}</Badge>
-              {grievance.isAnonymous && (
-                <span className="text-xs bg-gray-100 dark:bg-slate-800 text-gray-500 px-2.5 py-1 rounded-full">
-                  Anonymous
+              <Badge variant={grievance.priority.toLowerCase()}>
+                {grievance.priority} Priority
+              </Badge>
+              <Badge variant={statusVariant[grievance.status]}>
+                {grievance.status}
+              </Badge>
+              {grievance.visibility === 'private' && (
+                <span className="text-xs bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-400 px-2.5 py-1 rounded-full">
+                  🔒 Private
                 </span>
               )}
               {isOverdue && (
@@ -163,7 +190,6 @@ const GrievanceDetailPage = () => {
 
             {/* Workflow stepper */}
             <div className="relative mb-4">
-              {/* Connector line */}
               <div className="absolute top-5 left-0 right-0 h-0.5 bg-gray-100 dark:bg-slate-800 z-0" />
               <div className="flex justify-between relative z-10">
                 {WORKFLOW.map((step, i) => (
@@ -191,20 +217,22 @@ const GrievanceDetailPage = () => {
 
             {/* Description */}
             <div>
-              <div className="text-xs font-medium text-gray-500 dark:text-slate-400 mb-2">Description</div>
+              <div className="text-xs font-medium text-gray-500 dark:text-slate-400 mb-2">
+                Description
+              </div>
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
                 {grievance.description}
               </p>
             </div>
 
-            {/* Meta info */}
+            {/* Meta info grid */}
             <div className="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-gray-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <IconUser size={14} className="text-gray-400" />
                 <div>
                   <div className="text-[10px] text-gray-400">Submitted by</div>
                   <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                    {grievance.isAnonymous ? 'Anonymous' : grievance.submittedBy?.name}
+                    {grievance.submittedBy?.name}
                   </div>
                 </div>
               </div>
@@ -226,34 +254,77 @@ const GrievanceDetailPage = () => {
                       isOverdue ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'
                     }`}>
                       {new Date(grievance.deadline).toLocaleDateString('en-IN', {
-                        day: 'numeric', month: 'short', year: 'numeric'
+                        day: 'numeric', month: 'short', year: 'numeric',
                       })}
                     </div>
                   </div>
                 </div>
               )}
+
+              {/* Attachment */}
+              {grievance.attachments?.length > 0 && (
+                <div className="col-span-2 mt-2">
+                  <div className="text-[10px] text-gray-400 mb-2">📎 Attachment</div>
+                  {(() => {
+                    const attachment = grievance.attachments[0];
+                    const isImage =
+                      attachment.url?.match(/\.(jpg|jpeg|png|webp|gif)/i) ||
+                      attachment.originalName?.match(/\.(jpg|jpeg|png|webp|gif)/i);
+
+                    return isImage ? (
+                      <div
+                        className="relative cursor-pointer rounded-xl overflow-hidden border border-gray-100 dark:border-slate-800"
+                        onClick={() => window.open(attachment.url, '_blank')}
+                      >
+                        <img
+                          src={attachment.url}
+                          alt="Attachment"
+                          className="w-full max-h-64 object-cover hover:opacity-90 transition"
+                        />
+                        <div className="absolute bottom-2 right-2 bg-black/50 text-white text-[10px] px-2 py-1 rounded-lg">
+                          Click to open full size
+                        </div>
+                      </div>
+                    ) : (
+                      <a>
+                        href={attachment.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-3 py-2 hover:border-indigo-400 transition w-fit"
+                      
+                        <span className="text-xl">📄</span>
+                        <div>
+                          <div className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                            {attachment.originalName || 'View attachment'}
+                          </div>
+                          <div className="text-[10px] text-gray-400 dark:text-slate-500">
+                            Click to open
+                          </div>
+                        </div>
+                      </a>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Timeline + Comments */}
+          {/* Activity & Comments */}
           <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm">
             <div className="px-5 py-3.5 border-b border-gray-100 dark:border-slate-800">
               <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
                 Activity & Comments
               </h3>
             </div>
-
             <div className="p-5">
-              {/* Timeline items */}
               {grievance.comments.length === 0 ? (
                 <p className="text-sm text-gray-400 dark:text-slate-500 mb-5">
                   No activity yet.
                 </p>
               ) : (
                 <div className="space-y-4 mb-5">
-                  {grievance.comments.map((comment, i) => (
+                  {grievance.comments.map((comment) => (
                     <div key={comment._id} className="flex gap-3">
-                      {/* Avatar */}
                       <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${
                         comment.author?.role === 'Admin'
                           ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300'
@@ -261,7 +332,6 @@ const GrievanceDetailPage = () => {
                       }`}>
                         {comment.author?.name?.charAt(0).toUpperCase()}
                       </div>
-
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -276,7 +346,8 @@ const GrievanceDetailPage = () => {
                           </span>
                           <span className="text-[10px] text-gray-400 dark:text-slate-500 ml-auto">
                             {new Date(comment.createdAt).toLocaleString('en-IN', {
-                              day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
+                              day: 'numeric', month: 'short',
+                              hour: '2-digit', minute: '2-digit',
                             })}
                           </span>
                         </div>
@@ -293,7 +364,7 @@ const GrievanceDetailPage = () => {
                 </div>
               )}
 
-              {/* Add comment form */}
+              {/* Comment form — show for owner, admin, or any logged-in user viewing public issue */}
               <form onSubmit={handleComment}>
                 <div className="border border-gray-200 dark:border-slate-700 rounded-xl overflow-hidden">
                   <textarea
@@ -324,11 +395,11 @@ const GrievanceDetailPage = () => {
           </div>
         </div>
 
-        {/* Right sidebar — admin actions OR student info */}
+        {/* Right sidebar */}
         <div className="flex flex-col gap-4">
           {isAdmin ? (
             <>
-              {/* Status update */}
+              {/* Status update — admin only */}
               <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm p-4">
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3">
                   Update Status
@@ -351,7 +422,7 @@ const GrievanceDetailPage = () => {
                 </div>
               </div>
 
-              {/* Assign + deadline */}
+              {/* Assign + deadline — admin only */}
               <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm p-4">
                 <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3">
                   Assign & Set Deadline
@@ -398,7 +469,7 @@ const GrievanceDetailPage = () => {
               </div>
             </>
           ) : (
-            /* Student view — just info */
+            /* Student info panel */
             <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm p-4">
               <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-3">
                 Issue Info
@@ -433,8 +504,20 @@ const GrievanceDetailPage = () => {
                         isOverdue ? 'text-red-500' : 'text-gray-700 dark:text-gray-300'
                       }`}>
                         {new Date(grievance.deadline).toLocaleDateString('en-IN', {
-                          day: 'numeric', month: 'long', year: 'numeric'
+                          day: 'numeric', month: 'long', year: 'numeric',
                         })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {/* Show who submitted it if viewing someone else's issue */}
+                {!isOwner && (
+                  <div className="flex items-center gap-2">
+                    <IconUser size={14} className="text-gray-400" />
+                    <div>
+                      <div className="text-[10px] text-gray-400">Submitted by</div>
+                      <div className="text-xs font-medium text-gray-700 dark:text-gray-300 mt-0.5">
+                        {grievance.submittedBy?.name}
                       </div>
                     </div>
                   </div>

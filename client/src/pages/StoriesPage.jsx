@@ -10,11 +10,11 @@ import {
 } from '@tabler/icons-react';
 
 const categoryColors = {
-  Achievement:  'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300',
-  Event:        'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300',
-  Placement:    'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300',
+  Achievement: 'bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300',
+  Event: 'bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300',
+  Placement: 'bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300',
   Announcement: 'bg-violet-100 dark:bg-violet-950 text-violet-700 dark:text-violet-300',
-  Other:        'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400',
+  Other: 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400',
 };
 
 const categoryEmoji = {
@@ -27,7 +27,7 @@ const CreateStoryModal = ({ onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     title: '', content: '', category: 'Announcement',
   });
-  const [image, setImage]     = useState(null);
+  const [image, setImage] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -38,8 +38,8 @@ const CreateStoryModal = ({ onClose, onSuccess }) => {
     setLoading(true);
     try {
       const data = new FormData();
-      data.append('title',    formData.title);
-      data.append('content',  formData.content);
+      data.append('title', formData.title);
+      data.append('content', formData.content);
       data.append('category', formData.category);
       if (image) data.append('image', image);
 
@@ -108,11 +108,10 @@ const CreateStoryModal = ({ onClose, onSuccess }) => {
           {/* Image upload */}
           <div
             onClick={() => document.getElementById('story-image').click()}
-            className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition ${
-              image
+            className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition ${image
                 ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950'
                 : 'border-gray-200 dark:border-slate-700 hover:border-indigo-400'
-            }`}
+              }`}
           >
             <input
               id="story-image"
@@ -156,12 +155,12 @@ const CreateStoryModal = ({ onClose, onSuccess }) => {
 };
 
 // ── Story Card ───────────────────────────────────────────────
-const StoryCard = ({ story, currentUserId, isAdmin, onLike, onDelete }) => {
+const StoryCard = ({ story, currentUserId, isAdmin, onLike, onDelete, onView }) => {
   const [showComments, setShowComments] = useState(false);
-  const [commentText, setCommentText]   = useState('');
-  const [comments, setComments]         = useState(story.comments || []);
-  const [likesCount, setLikesCount]     = useState(story.likes?.length || 0);
-  const [liked, setLiked]               = useState(
+  const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState(story.comments || []);
+  const [likesCount, setLikesCount] = useState(story.likes?.length || 0);
+  const [liked, setLiked] = useState(
     story.likes?.some((id) => id === currentUserId || id?._id === currentUserId)
   );
 
@@ -194,7 +193,8 @@ const StoryCard = ({ story, currentUserId, isAdmin, onLike, onDelete }) => {
         <img
           src={story.imageUrl}
           alt={story.title}
-          className="w-full h-48 object-cover"
+          className="w-full h-48 object-cover cursor-pointer hover:opacity-90 transition"
+          onClick={onView}
         />
       )}
 
@@ -233,7 +233,10 @@ const StoryCard = ({ story, currentUserId, isAdmin, onLike, onDelete }) => {
         </div>
 
         {/* Title + content */}
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2">
+        <h3
+          className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-2 cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400"
+          onClick={onView}
+        >
           {story.title}
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed mb-4">
@@ -244,11 +247,10 @@ const StoryCard = ({ story, currentUserId, isAdmin, onLike, onDelete }) => {
         <div className="flex items-center gap-4 pt-3 border-t border-gray-100 dark:border-slate-800">
           <button
             onClick={handleLike}
-            className={`flex items-center gap-1.5 text-sm transition ${
-              liked
+            className={`flex items-center gap-1.5 text-sm transition ${liked
                 ? 'text-red-500'
                 : 'text-gray-400 dark:text-slate-500 hover:text-red-500'
-            }`}
+              }`}
           >
             {liked
               ? <IconHeartFilled size={16} />
@@ -311,13 +313,118 @@ const StoryCard = ({ story, currentUserId, isAdmin, onLike, onDelete }) => {
   );
 };
 
+// Full story viewer modal with prev/next navigation
+const StoryViewer = ({ stories, startIndex, onClose }) => {
+  const [current, setCurrent] = useState(startIndex);
+  const story = stories[current];
+
+  const goNext = () => { if (current < stories.length - 1) setCurrent((p) => p + 1); };
+  const goPrev = () => { if (current > 0) setCurrent((p) => p - 1); };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'ArrowRight') goNext();
+      if (e.key === 'ArrowLeft') goPrev();
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [current]);
+
+  return (
+    <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+      {/* Close */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 text-white/70 hover:text-white p-2"
+      >
+        <IconX size={20} />
+      </button>
+
+      {/* Counter */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-xs">
+        {current + 1} / {stories.length}
+      </div>
+
+      {/* Progress bars */}
+      <div className="absolute top-12 left-4 right-4 flex gap-1">
+        {stories.map((_, i) => (
+          <div
+            key={i}
+            className={`h-0.5 flex-1 rounded-full ${i < current ? 'bg-white' :
+                i === current ? 'bg-white/80' : 'bg-white/30'
+              }`}
+          />
+        ))}
+      </div>
+
+      {/* Prev button */}
+      {current > 0 && (
+        <button
+          onClick={goPrev}
+          className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition"
+        >
+          ‹
+        </button>
+      )}
+
+      {/* Story content */}
+      <div className="max-w-lg w-full bg-[#1a1a2e] rounded-2xl overflow-hidden">
+        {story.imageUrl && (
+          <img
+            src={story.imageUrl}
+            alt={story.title}
+            className="w-full max-h-80 object-cover"
+          />
+        )}
+        <div className="p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-xs font-semibold text-white">
+              {story.author?.name?.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <div className="text-sm font-medium text-white">{story.author?.name}</div>
+              <div className="text-[10px] text-white/50">
+                {new Date(story.createdAt).toLocaleDateString('en-IN', {
+                  day: 'numeric', month: 'short', year: 'numeric'
+                })}
+              </div>
+            </div>
+            <span className={`ml-auto text-[10px] px-2 py-0.5 rounded-full font-medium ${categoryColors[story.category]}`}>
+              {categoryEmoji[story.category]} {story.category}
+            </span>
+          </div>
+          <h3 className="text-base font-semibold text-white mb-2">{story.title}</h3>
+          <p className="text-sm text-white/70 leading-relaxed">{story.content}</p>
+          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-white/10">
+            <span className="text-white/50 text-xs">❤️ {story.likes?.length || 0} likes</span>
+            <span className="text-white/50 text-xs">💬 {story.comments?.length || 0} comments</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Next button */}
+      {current < stories.length - 1 && (
+        <button
+          onClick={goNext}
+          className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition"
+        >
+          ›
+        </button>
+      )}
+    </div>
+  );
+};
+
 // ── Main Stories Page ────────────────────────────────────────
 const StoriesPage = () => {
   const { user, isAdmin } = useAuth();
-  const [stories, setStories]       = useState([]);
-  const [loading, setLoading]       = useState(true);
+  const [stories, setStories] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
-  const [filter, setFilter]         = useState('');
+  const [filter, setFilter] = useState('');
+  const [viewerIndex, setViewerIndex] = useState(null);
 
   useEffect(() => {
     loadStories();
@@ -359,7 +466,7 @@ const StoriesPage = () => {
             Campus achievements, events and announcements
           </p>
         </div>
-        {isAdmin && (
+        
           <button
             onClick={() => setShowCreate(true)}
             className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-3 py-2 rounded-lg transition"
@@ -367,7 +474,7 @@ const StoriesPage = () => {
             <IconPlus size={15} />
             Post Story
           </button>
-        )}
+        
       </div>
 
       {/* Category filters */}
@@ -376,11 +483,10 @@ const StoriesPage = () => {
           <button
             key={cat}
             onClick={() => setFilter(cat)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
-              filter === cat
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${filter === cat
                 ? 'bg-indigo-600 text-white'
                 : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400 hover:bg-gray-200 dark:hover:bg-slate-700'
-            }`}
+              }`}
           >
             {cat === '' ? 'All' : `${categoryEmoji[cat]} ${cat}`}
           </button>
@@ -413,17 +519,25 @@ const StoriesPage = () => {
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {stories.map((story) => (
+          {stories.map((story, index) => (
             <StoryCard
               key={story._id}
               story={story}
               currentUserId={user?._id}
               isAdmin={isAdmin}
               onDelete={handleDelete}
+              onView={() => setViewerIndex(index)}
             />
           ))}
         </div>
       )}
+      {viewerIndex !== null && (
+  <StoryViewer
+    stories={stories}
+    startIndex={viewerIndex}
+    onClose={() => setViewerIndex(null)}
+  />
+)}
 
       {/* Create modal */}
       {showCreate && (
@@ -436,6 +550,7 @@ const StoriesPage = () => {
         />
       )}
     </AppShell>
+    
   );
 };
 

@@ -18,6 +18,9 @@ export const SocketProvider = ({ children }) => {
     socketRef.current = io('http://localhost:5000', {
       transports: ['websocket'],
       reconnection: true,
+      auth: {
+        token: localStorage.getItem('token'),
+      },
     });
 
     socketRef.current.on('connect', () => {
@@ -33,8 +36,8 @@ export const SocketProvider = ({ children }) => {
       // Show ONE toast
       const icon =
         data.type === 'grievance_resolved' ? '✅' :
-        data.type === 'comment_added'      ? '💬' :
-        data.type === 'grievance_assigned' ? '📌' : '📋';
+          data.type === 'comment_added' ? '💬' :
+            data.type === 'grievance_assigned' ? '📌' : '📋';
 
       toast(data.title, {
         icon,

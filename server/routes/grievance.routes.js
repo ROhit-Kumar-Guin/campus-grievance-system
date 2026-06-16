@@ -9,6 +9,8 @@ import {
   deleteGrievance,
 } from '../controllers/grievance.controller.js';
 import { protect, adminOnly } from '../middleware/auth.middleware.js';
+import { uploadGrievance } from '../config/cloudinary.js';
+
 
 const router = express.Router();
 
@@ -16,7 +18,11 @@ const router = express.Router();
 router.use(protect);
 
 router.get('/',    getGrievances);
-router.post('/',   createGrievance);
+router.post(
+  '/',
+  uploadGrievance.single('file'),
+  createGrievance
+);
 router.get('/:id', getGrievanceById);
 
 // Comment on a grievance (student + admin)

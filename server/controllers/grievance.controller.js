@@ -7,27 +7,29 @@ import notifyUser from '../utils/notifyUser.js';
 // GET /api/grievances
 export const getGrievances = async (req, res) => {
   try {
-    const { status, category, priority, page = 1, limit = 10 } = req.query;
+    const { status, category, priority, page = 1, limit = 20, mine } = req.query;
 
-    // Build filter object dynamically
-    const filter = {};
+    let filter = {};
 
-    // Students can only see their own grievances
-    if (req.user.role === 'Student') {
+    if (mine === 'true') {
+      // My Issues — student's own grievances (both public and private)
       filter.submittedBy = req.user._id;
+    } else {
+      // All Issues / Dashboard / Admin overview — public only
+      // Private grievances handled separately via inbox
+      filter.visibility = { $ne: 'private' };
     }
 
-    // Optional filters from query params
-    if (status)   filter.status = status;
+    if (status)   filter.status   = status;
     if (category) filter.category = category;
     if (priority) filter.priority = priority;
 
-    // Pagination
     const skip = (Number(page) - 1) * Number(limit);
 
     const [grievances, total] = await Promise.all([
       Grievance.find(filter)
         .populate('submittedBy', 'name email department rollNumber')
+        .populate('assignedAdmins', 'name email')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit)),
@@ -39,7 +41,7 @@ export const getGrievances = async (req, res) => {
       grievances,
       pagination: {
         total,
-        page: Number(page),
+        page:  Number(page),
         pages: Math.ceil(total / Number(limit)),
       },
     });
@@ -54,21 +56,39 @@ export const getGrievanceById = async (req, res) => {
   try {
     const grievance = await Grievance.findById(req.params.id)
       .populate('submittedBy', 'name email department rollNumber')
+      .populate('assignedAdmins', 'name email')
       .populate({
         path: 'comments',
         populate: { path: 'author', select: 'name role' },
       });
 
     if (!grievance) {
-      return res.status(404).json({ success: false, message: 'Grievance not found' });
+      return res.status(404).json({
+        success: false,
+        message: 'Grievance not found',
+      });
     }
 
-    // Students can only view their own grievances
-    if (
-      req.user.role === 'Student' &&
-      grievance.submittedBy._id.toString() !== req.user._id.toString()
-    ) {
-      return res.status(403).json({ success: false, message: 'Access denied' });
+    // Admins can see everything
+    if (req.user.role === 'Admin') {
+      return res.status(200).json({ success: true, grievance });
+    }
+
+    // Students can only see:
+    // 1. Their own grievances
+    // 2. Public grievances
+    // 3. Private grievances they are an assigned admin of
+    const isOwner = grievance.submittedBy?._id.toString() === req.user._id.toString();
+    const isPublic = grievance.visibility === 'public' || !grievance.visibility;
+    const isAssigned = grievance.assignedAdmins?.some(
+      (a) => a._id?.toString() === req.user._id.toString()
+    );
+
+    if (!isOwner && !isPublic && !isAssigned) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied',
+      });
     }
 
     res.status(200).json({ success: true, grievance });
@@ -81,7 +101,7 @@ export const getGrievanceById = async (req, res) => {
 // POST /api/grievances
 export const createGrievance = async (req, res) => {
   try {
-    const { title, description, category, priority, isAnonymous } = req.body;
+    const { title, description, category, priority, visibility, assignedAdmins: rawAdmins } = req.body;
 
     if (!title || !description || !category) {
       return res.status(400).json({
@@ -90,20 +110,46 @@ export const createGrievance = async (req, res) => {
       });
     }
 
-    const grievance = await Grievance.create({
+    // Parse assignedAdmins — could be a string (single) or array (multiple)
+    let assignedAdmins = [];
+    if (visibility === 'private') {
+      if (rawAdmins) {
+        assignedAdmins = Array.isArray(rawAdmins) ? rawAdmins : [rawAdmins];
+      }
+
+      if (assignedAdmins.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Please select at least one admin for private grievance',
+        });
+      }
+    }
+
+    const grievanceData = {
       title,
       description,
       category,
-      priority: priority || 'Medium',
-      isAnonymous: isAnonymous || false,
-      submittedBy: req.user._id,
-    });
+      priority:       priority || 'Medium',
+      visibility:     visibility || 'public',
+      assignedAdmins: visibility === 'private' ? assignedAdmins : [],
+      submittedBy:    req.user._id,
+    };
 
-    // Populate before sending back
+    if (req.file) {
+      grievanceData.attachments = [{
+        url:          req.file.path,
+        publicId:     req.file.filename,
+        originalName: req.file.originalname || title,
+      }];
+    }
+
+    const grievance = await Grievance.create(grievanceData);
     await grievance.populate('submittedBy', 'name email department');
+    await grievance.populate('assignedAdmins', 'name email');
 
     res.status(201).json({ success: true, grievance });
   } catch (error) {
+    console.log('CREATE GRIEVANCE ERROR:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -131,9 +177,9 @@ export const updateStatus = async (req, res) => {
     // Create timeline comment
     const comment = await Comment.create({
       grievance: grievance._id,
-      author:    req.user._id,
-      text:      `Status changed from "${oldStatus}" to "${status}"`,
-      type:      'status_change',
+      author: req.user._id,
+      text: `Status changed from "${oldStatus}" to "${status}"`,
+      type: 'status_change',
     });
     grievance.comments.push(comment._id);
     await grievance.save();
@@ -143,14 +189,14 @@ export const updateStatus = async (req, res) => {
     if (grievance.submittedBy.toString() !== req.user._id.toString()) {
       const notifType = status === 'Resolved' ? 'grievance_resolved' : 'status_change';
       await notifyUser({
-        io:          req.io,
+        io: req.io,
         recipientId: grievance.submittedBy,
-        senderId:    req.user._id,
-        type:        notifType,
-        title:       status === 'Resolved'
-                       ? '✅ Your issue has been resolved!'
-                       : `📋 Issue status updated to "${status}"`,
-        message:     `Your grievance "${grievance.title}" status changed from "${oldStatus}" to "${status}"`,
+        senderId: req.user._id,
+        type: notifType,
+        title: status === 'Resolved'
+          ? '✅ Your issue has been resolved!'
+          : `📋 Issue status updated to "${status}"`,
+        message: `Your grievance "${grievance.title}" status changed from "${oldStatus}" to "${status}"`,
         grievanceId: grievance._id,
       });
     }
@@ -173,7 +219,7 @@ export const assignGrievance = async (req, res) => {
     }
 
     if (assignedTo) grievance.assignedTo = assignedTo;
-    if (deadline)   grievance.deadline   = new Date(deadline);
+    if (deadline) grievance.deadline = new Date(deadline);
     if (grievance.status === 'Pending') grievance.status = 'Under Review';
 
     await grievance.save();
@@ -185,19 +231,19 @@ export const assignGrievance = async (req, res) => {
 
     await Comment.create({
       grievance: grievance._id,
-      author:    req.user._id,
-      text:      commentText,
-      type:      'assignment',
+      author: req.user._id,
+      text: commentText,
+      type: 'assignment',
     });
 
     // ── Notify student ───────────────────────────────────────
     await notifyUser({
-      io:          req.io,
+      io: req.io,
       recipientId: grievance.submittedBy,
-      senderId:    req.user._id,
-      type:        'grievance_assigned',
-      title:       '📌 Your issue has been assigned',
-      message:     `Your grievance "${grievance.title}" was assigned to ${assignedTo}${deadline ? ` with deadline ${new Date(deadline).toDateString()}` : ''}`,
+      senderId: req.user._id,
+      type: 'grievance_assigned',
+      title: '📌 Your issue has been assigned',
+      message: `Your grievance "${grievance.title}" was assigned to ${assignedTo}${deadline ? ` with deadline ${new Date(deadline).toDateString()}` : ''}`,
       grievanceId: grievance._id,
     });
 
@@ -224,9 +270,9 @@ export const addComment = async (req, res) => {
 
     const comment = await Comment.create({
       grievance: grievance._id,
-      author:    req.user._id,
+      author: req.user._id,
       text,
-      type:      'comment',
+      type: 'comment',
     });
 
     grievance.comments.push(comment._id);
@@ -238,12 +284,12 @@ export const addComment = async (req, res) => {
     // If student comments → notify admin (skip for now, complex)
     if (req.user.role === 'Admin') {
       await notifyUser({
-        io:          req.io,
+        io: req.io,
         recipientId: grievance.submittedBy,
-        senderId:    req.user._id,
-        type:        'comment_added',
-        title:       '💬 Admin commented on your issue',
-        message:     `New comment on "${grievance.title}": "${text.substring(0, 80)}${text.length > 80 ? '...' : ''}"`,
+        senderId: req.user._id,
+        type: 'comment_added',
+        title: '💬 Admin commented on your issue',
+        message: `New comment on "${grievance.title}": "${text.substring(0, 80)}${text.length > 80 ? '...' : ''}"`,
         grievanceId: grievance._id,
       });
     }

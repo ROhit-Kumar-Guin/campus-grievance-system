@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell.jsx';
 import Badge from '../components/ui/Badge.jsx';
 import { SkeletonCard } from '../components/ui/Skeleton.jsx';
 import EmptyState from '../components/ui/EmptyState.jsx';
-import { fetchMyGrievances } from '../api/grievance.api.js';
+import { fetchGrievances } from '../api/grievance.api.js';
 import {
-  IconPlus, IconFilter, IconLayoutGrid, IconList,
+  IconFilter, IconLayoutGrid, IconList,
 } from '@tabler/icons-react';
 
 const statusVariant = {
@@ -33,13 +33,11 @@ const categoryBg = {
   'Personal':       'bg-gray-100 dark:bg-slate-700',
 };
 
-// ── Card View Item ───────────────────────────────────────────
-const GrievanceCard = ({ g, onClick }) => (
+const IssueCard = ({ g, onClick }) => (
   <div
     onClick={onClick}
     className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden cursor-pointer hover:shadow-md hover:border-indigo-200 dark:hover:border-indigo-800 transition group"
   >
-    {/* Attachment image if exists */}
     {g.attachments?.length > 0 &&
       (g.attachments[0].url?.match(/\.(jpg|jpeg|png|webp)/i) ||
        g.attachments[0].originalName?.match(/\.(jpg|jpeg|png)/i)) && (
@@ -51,94 +49,57 @@ const GrievanceCard = ({ g, onClick }) => (
         />
       </div>
     )}
-
-    {/* Card body */}
     <div className="p-4">
-      {/* Category + privacy badge */}
       <div className="flex items-center justify-between mb-2">
         <span className={`text-[10px] px-2 py-0.5 rounded-full ${categoryBg[g.category]} text-gray-700 dark:text-gray-300`}>
           {categoryEmoji[g.category]} {g.category}
         </span>
-        {g.visibility === 'private' && (
-          <span className="text-[10px] bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-300 px-2 py-0.5 rounded-full">
-            🔒 Private
-          </span>
-        )}
-      </div>
-
-      {/* Title */}
-      <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1 line-clamp-2">
-        {g.title}
-      </h3>
-
-      {/* Description preview */}
-      <p className="text-xs text-gray-500 dark:text-slate-400 line-clamp-2 mb-3">
-        {g.description}
-      </p>
-
-      {/* Footer */}
-      <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-slate-800">
-        <div className="flex items-center gap-1.5">
-          <Badge variant={priorityVariant[g.priority]}>{g.priority}</Badge>
-          <Badge variant={statusVariant[g.status]}>{g.status}</Badge>
-        </div>
         <span className="text-[10px] text-gray-400 dark:text-slate-500">
           {new Date(g.createdAt).toLocaleDateString('en-IN', {
             day: 'numeric', month: 'short',
           })}
         </span>
       </div>
-
-      {/* Deadline warning */}
-      {g.deadline && !['Resolved', 'Closed'].includes(g.status) &&
-        new Date(g.deadline) < new Date() && (
-        <div className="mt-2 text-[10px] text-red-500 font-medium">
-          ⚠️ Overdue · was due {new Date(g.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+      <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100 mb-1 line-clamp-2">
+        {g.title}
+      </h3>
+      <p className="text-xs text-gray-500 dark:text-slate-400 line-clamp-2 mb-3">
+        {g.description}
+      </p>
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-5 h-5 rounded-full bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-[9px] font-semibold text-indigo-700 dark:text-indigo-300 flex-shrink-0">
+          {g.submittedBy?.name?.charAt(0).toUpperCase()}
         </div>
-      )}
+        <span className="text-[10px] text-gray-500 dark:text-slate-400 truncate">
+          {g.submittedBy?.name} · {g.submittedBy?.department?.split(' ')[0]}
+        </span>
+      </div>
+      <div className="flex items-center gap-1.5 pt-2 border-t border-gray-100 dark:border-slate-800">
+        <Badge variant={priorityVariant[g.priority]}>{g.priority}</Badge>
+        <Badge variant={statusVariant[g.status]}>{g.status}</Badge>
+      </div>
     </div>
   </div>
 );
 
-// ── List View Item ───────────────────────────────────────────
-const GrievanceListItem = ({ g, onClick }) => (
+const IssueListItem = ({ g, onClick }) => (
   <div
     onClick={onClick}
     className="flex items-center gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer transition"
   >
-    {/* Category icon */}
     <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-base ${categoryBg[g.category]}`}>
       {categoryEmoji[g.category]}
     </div>
-
-    {/* Content */}
     <div className="flex-1 min-w-0">
-      <div className="flex items-center gap-2 mb-0.5">
-        <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
-          {g.title}
-        </p>
-        {g.visibility === 'private' && (
-          <span className="text-[9px] bg-violet-100 dark:bg-violet-950 text-violet-600 dark:text-violet-300 px-1.5 py-0.5 rounded-full flex-shrink-0">
-            🔒
-          </span>
-        )}
-      </div>
-      <p className="text-xs text-gray-400 dark:text-slate-500">
-        {g.category} · {new Date(g.createdAt).toLocaleDateString('en-IN', {
+      <p className="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">
+        {g.title}
+      </p>
+      <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">
+        by {g.submittedBy?.name} · {g.category} · {new Date(g.createdAt).toLocaleDateString('en-IN', {
           day: 'numeric', month: 'short', year: 'numeric',
         })}
-        {g.deadline && (
-          <span className={
-            new Date(g.deadline) < new Date() && !['Resolved','Closed'].includes(g.status)
-              ? ' · ⚠️ Overdue'
-              : ` · Due ${new Date(g.deadline).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}`
-          }>
-          </span>
-        )}
       </p>
     </div>
-
-    {/* Badges */}
     <div className="flex items-center gap-2 flex-shrink-0">
       <span className="hidden sm:block">
         <Badge variant={priorityVariant[g.priority]}>{g.priority}</Badge>
@@ -148,20 +109,13 @@ const GrievanceListItem = ({ g, onClick }) => (
   </div>
 );
 
-// ── Main Page ────────────────────────────────────────────────
-const GrievancesPage = () => {
+const AllIssuesPage = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const [grievances, setGrievances] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [viewMode, setViewMode]     = useState('list');
-  const [filter, setFilter]         = useState({ status: '', category: '' });
   const [search, setSearch]         = useState('');
-
-  useEffect(() => {
-    const urlSearch = searchParams.get('search');
-    if (urlSearch) setSearch(urlSearch);
-  }, [searchParams]);
+  const [filter, setFilter]         = useState({ status: '', category: '' });
 
   useEffect(() => {
     loadGrievances();
@@ -173,7 +127,7 @@ const GrievancesPage = () => {
       const params = Object.fromEntries(
         Object.entries(filter).filter(([, v]) => v !== '')
       );
-      const data = await fetchMyGrievances(params);
+      const data = await fetchGrievances(params);
       setGrievances(data.grievances);
     } catch {
       console.error('Failed to load');
@@ -182,47 +136,34 @@ const GrievancesPage = () => {
     }
   };
 
-  // Client-side search filter
   const filtered = grievances.filter((g) =>
     search === '' ||
     g.title.toLowerCase().includes(search.toLowerCase()) ||
-    g.category.toLowerCase().includes(search.toLowerCase())
+    g.category.toLowerCase().includes(search.toLowerCase()) ||
+    g.submittedBy?.name?.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <AppShell title="My Issues">
-      {/* Header */}
+    <AppShell title="All Issues">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
           <h2 className="text-base font-semibold text-gray-800 dark:text-gray-100">
-            My Grievances
+            All Issues
           </h2>
           <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
-            {grievances.length} issue{grievances.length !== 1 ? 's' : ''} submitted by you
+            {grievances.length} public issue{grievances.length !== 1 ? 's' : ''} from all students
           </p>
         </div>
-        <button
-          onClick={() => navigate('/grievances/new')}
-          className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-3 py-2 rounded-lg transition"
-        >
-          <IconPlus size={15} />
-          New Issue
-        </button>
       </div>
 
-      {/* Search + Filters + View toggle */}
       <div className="flex items-center gap-2 mb-4 flex-wrap">
-        {/* Search */}
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search my issues..."
+          placeholder="Search all issues..."
           className="flex-1 min-w-[150px] max-w-xs px-3 py-1.5 text-xs rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 placeholder-gray-400 outline-none focus:ring-2 focus:ring-indigo-500"
         />
-
         <IconFilter size={14} className="text-gray-400 hidden sm:block" />
-
-        {/* Status filter */}
         <select
           value={filter.status}
           onChange={(e) => setFilter((p) => ({ ...p, status: e.target.value }))}
@@ -235,8 +176,6 @@ const GrievancesPage = () => {
           <option>Resolved</option>
           <option>Closed</option>
         </select>
-
-        {/* Category filter */}
         <select
           value={filter.category}
           onChange={(e) => setFilter((p) => ({ ...p, category: e.target.value }))}
@@ -248,8 +187,6 @@ const GrievancesPage = () => {
           <option>Administration</option>
           <option>Personal</option>
         </select>
-
-        {/* Clear */}
         {(filter.status || filter.category || search) && (
           <button
             onClick={() => { setFilter({ status: '', category: '' }); setSearch(''); }}
@@ -258,8 +195,6 @@ const GrievancesPage = () => {
             Clear
           </button>
         )}
-
-        {/* View toggle */}
         <div className="flex items-center gap-1 ml-auto bg-gray-100 dark:bg-slate-800 rounded-lg p-1">
           <button
             onClick={() => setViewMode('grid')}
@@ -268,7 +203,6 @@ const GrievancesPage = () => {
                 ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600'
                 : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
             }`}
-            aria-label="Grid view"
           >
             <IconLayoutGrid size={14} />
           </button>
@@ -279,14 +213,12 @@ const GrievancesPage = () => {
                 ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600'
                 : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
             }`}
-            aria-label="List view"
           >
             <IconList size={14} />
           </button>
         </div>
       </div>
 
-      {/* Content */}
       {loading ? (
         <div className={
           viewMode === 'grid'
@@ -298,45 +230,27 @@ const GrievancesPage = () => {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon="📋"
-          title={search || filter.status || filter.category
-            ? 'No issues match your filters'
-            : "You haven't submitted any issues yet"
-          }
-          description={search || filter.status || filter.category
-            ? 'Try clearing your filters'
-            : 'Submit your first grievance using the button above'
-          }
-          action={
-            !search && !filter.status && !filter.category && (
-              <button
-                onClick={() => navigate('/grievances/new')}
-                className="bg-indigo-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
-              >
-                Submit first issue
-              </button>
-            )
-          }
+          title="No issues found"
+          description="No public grievances match your filters."
         />
       ) : viewMode === 'grid' ? (
-        /* Grid / Card view */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((g) => (
-            <GrievanceCard
+            <IssueCard
               key={g._id}
               g={g}
-              onClick={() => navigate(`/grievances/${g._id}`)}
+              onClick={() => navigate(`/all-issues/${g._id}`)}
             />
           ))}
         </div>
       ) : (
-        /* List view */
         <div className="bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-xl shadow-sm overflow-hidden">
           <div className="divide-y divide-gray-50 dark:divide-slate-800">
             {filtered.map((g) => (
-              <GrievanceListItem
+              <IssueListItem
                 key={g._id}
                 g={g}
-                onClick={() => navigate(`/grievances/${g._id}`)}
+                onClick={() => navigate(`/all-issues/${g._id}`)}
               />
             ))}
           </div>
@@ -346,4 +260,4 @@ const GrievancesPage = () => {
   );
 };
 
-export default GrievancesPage;
+export default AllIssuesPage;

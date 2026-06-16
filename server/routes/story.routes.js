@@ -21,7 +21,6 @@ router.post('/:id/comments', addComment);
 // Admin only
 router.post(
   '/',
-  adminOnly,
   uploadStory.single('image'),
   createStory
 );

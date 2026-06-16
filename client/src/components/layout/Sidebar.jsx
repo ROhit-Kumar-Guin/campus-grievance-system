@@ -4,13 +4,16 @@ import {
   IconLayoutDashboard, IconAlertCircle, IconCirclePlus,
   IconBooks, IconNews, IconBell, IconChartPie,
   IconSettings, IconUsers, IconLogout, IconSchool,
+  IconX, IconWorld, IconMessage, IconInbox,
 } from '@tabler/icons-react';
 import toast from 'react-hot-toast';
 
 const studentNav = [
   { label: 'Dashboard',     icon: IconLayoutDashboard, to: '/dashboard' },
+  { label: 'All Issues',    icon: IconWorld,           to: '/all-issues' },
   { label: 'My Issues',     icon: IconAlertCircle,     to: '/grievances' },
   { label: 'New Issue',     icon: IconCirclePlus,      to: '/grievances/new' },
+  { label: 'Messages',      icon: IconMessage,         to: '/messages' },
   { label: 'Resources',     icon: IconBooks,           to: '/resources' },
   { label: 'Stories',       icon: IconNews,            to: '/stories' },
   { label: 'Notifications', icon: IconBell,            to: '/notifications' },
@@ -20,6 +23,7 @@ const studentNav = [
 const adminNav = [
   { label: 'Overview',    icon: IconLayoutDashboard, to: '/admin' },
   { label: 'All Issues',  icon: IconAlertCircle,     to: '/admin/grievances' },
+  { label: 'Inbox',       icon: IconInbox,           to: '/admin/inbox' },
   { label: 'Analytics',   icon: IconChartPie,        to: '/admin/analytics' },
   { label: 'Users',       icon: IconUsers,           to: '/admin/users' },
   { label: 'Resources',   icon: IconBooks,           to: '/admin/resources' },
@@ -27,7 +31,7 @@ const adminNav = [
   { label: 'Settings',    icon: IconSettings,        to: '/admin/settings' },
 ];
 
-const Sidebar = () => {
+const Sidebar = ({ onClose }) => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const navItems = isAdmin ? adminNav : studentNav;
@@ -56,25 +60,39 @@ const Sidebar = () => {
         : 'bg-white dark:bg-slate-900 border-gray-100 dark:border-slate-800'
     }`}>
       {/* Logo */}
-      <div className="flex items-center gap-2 px-2 mb-6">
-        <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
-          isAdmin ? 'bg-white/20' : 'bg-indigo-600'
-        }`}>
-          <IconSchool size={16} color="white" />
-        </div>
-        <div>
-          <div className={`text-xs font-semibold leading-tight ${
-            isAdmin ? 'text-white' : 'text-gray-800 dark:text-gray-100'
-          }`}>
-            CampusGrieve
-          </div>
-          <div className={`text-[10px] leading-tight ${
-            isAdmin ? 'text-white/40' : 'text-gray-400 dark:text-slate-500'
-          }`}>
-            {isAdmin ? 'Admin Panel' : 'VBU Portal'}
-          </div>
-        </div>
-      </div>
+<div className="flex items-center gap-2 px-2 mb-6">
+  <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${
+    isAdmin ? 'bg-white/20' : 'bg-indigo-600'
+  }`}>
+    <IconSchool size={16} color="white" />
+  </div>
+  <div className="flex-1 min-w-0">
+    <div className={`text-xs font-semibold leading-tight truncate  ${
+      isAdmin ? 'text-white' : 'text-gray-800 dark:text-gray-100'
+    }`}>
+      CampusGrieve
+    </div>
+    <div className={`text-[10px] leading-tight ${
+      isAdmin ? 'text-white/40' : 'text-gray-400 dark:text-slate-500'
+    }`}>
+      {isAdmin ? 'Admin Panel' : 'VBU Portal'}
+    </div>
+  </div>
+  {/* Close button — mobile only */}
+{onClose && (
+    <button
+      onClick={onClose}
+      className={`p-1.5 rounded-lg flex-shrink-0 ${
+        isAdmin
+          ? 'text-white/60 hover:bg-white/10 hover:text-white'
+          : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+      }`}
+      aria-label="Close sidebar"
+    >
+      <IconX size={16} />
+    </button>
+  )}
+</div>
 
       {/* Section label */}
       <div className={`text-[10px] font-medium uppercase tracking-wider px-3 mb-2 ${
