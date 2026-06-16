@@ -15,13 +15,15 @@ export const SocketProvider = ({ children }) => {
     if (!isAuthenticated || !user?._id) return;
 
     // Create ONE socket connection for the entire app
-    socketRef.current = io('http://localhost:5000', {
-      transports: ['websocket'],
-      reconnection: true,
-      auth: {
-        token: localStorage.getItem('token'),
-      },
-    });
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+
+socketRef.current = io(SOCKET_URL, {
+  transports: ['websocket', 'polling'],
+  reconnection: true,
+  auth: {
+    token: localStorage.getItem('token'),
+  },
+});
 
     socketRef.current.on('connect', () => {
       socketRef.current.emit('join', user._id);
