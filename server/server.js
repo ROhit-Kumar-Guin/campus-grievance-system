@@ -79,7 +79,7 @@ app.use(helmet({
 // CORS
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://campus-grievance-system-fq05a2w8w-rohit-kumar-guin-s-projects.vercel.app',
+  'https://campusgrieve-vbu.vercel.app',
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
