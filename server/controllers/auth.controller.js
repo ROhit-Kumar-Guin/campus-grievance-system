@@ -1,5 +1,8 @@
 import User from '../models/User.js';
 import generateToken from '../utils/generateToken.js';
+import { OAuth2Client } from 'google-auth-library';
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 export const register = async (req, res) => {
   try {
@@ -121,6 +124,59 @@ export const login = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+
+export const googleLogin = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) {
+      return res.status(400).json({ success: false, message: 'Missing Google ID token' });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const email = payload?.email;
+    const name = payload?.name || 'Google User';
+    const picture = payload?.picture || '';
+
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Unable to verify Google account email' });
+    }
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = new User({
+        name,
+        email,
+        password: Math.random().toString(36).slice(-12),
+        role: 'Student',
+        department: 'Not specified',
+        profilePic: picture,
+      });
+      await user.save();
+    }
+
+    const token = generateToken(user._id, user.role);
+    res.status(200).json({
+      success: true,
+      token,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department: user.department,
+        rollNumber: user.rollNumber,
+        profilePic: user.profilePic,
+      },
+    });
+  } catch (error) {
+    console.log('GOOGLE LOGIN ERROR:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 

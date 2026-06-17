@@ -136,6 +136,7 @@ const otpLimiter = rateLimit({
 app.use('/api/', generalLimiter);
 app.use('/api/auth/login',           authLimiter);
 app.use('/api/auth/register',        authLimiter);
+app.use('/api/auth/google-login',    authLimiter);
 app.use('/api/auth/forgot-password', otpLimiter);
 app.use('/api/auth/reset-password',  otpLimiter);
 

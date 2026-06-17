@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GoogleLogin } from '@react-oauth/google';
 
 /*............................................*/
 import { Link, useNavigate, Navigate } from 'react-router-dom';/*............................*/
@@ -7,7 +8,7 @@ import toast from 'react-hot-toast';
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated, user } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated, user } = useAuth();
 
   const [formData, setFormData] = useState({
     email: '',
@@ -32,7 +33,6 @@ const LoginPage = () => {
     try {
       const data = await login(formData);
       toast.success(`Welcome back, ${data.user.name}!`);
-      // Redirect based on role
       if (data.user.role === 'Admin') {
         navigate('/admin');
       } else {
@@ -43,6 +43,32 @@ const LoginPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    if (!credentialResponse?.credential) {
+      toast.error('Google sign-in failed');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const data = await loginWithGoogle(credentialResponse.credential);
+      toast.success(`Welcome back, ${data.user.name}!`);
+      if (data.user.role === 'Admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Google login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleError = () => {
+    toast.error('Google sign-in failed');
   };
 
   return (
@@ -62,6 +88,17 @@ const LoginPage = () => {
         {/* Form card */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl p-8 shadow-2xl border border-transparent dark:border-slate-800">
           <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+              />
+            </div>
+            <div className="flex items-center justify-center gap-3 text-xs text-gray-400">
+              <span className="h-px w-12 bg-slate-200" />
+              <span>or sign in with email</span>
+              <span className="h-px w-12 bg-slate-200" />
+            </div>
 
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5">
